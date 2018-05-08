@@ -36,6 +36,22 @@ userSchema.methods.toJSON = function () {
   return _.pick(this.toObject(), ['_id', 'email']);
 };
 
+userSchema.statics.findByToken = function (token) {
+  let decoded;
+
+  try {
+    decoded = jwt.verify(token, 'abc123');
+  } catch (e) {
+    return Promise.reject();
+  }
+
+  return this.findOne({
+    '_id': decoded._id,
+    'tokens.token': token,
+    'tokens.access': 'auth'
+  });
+};
+
 userSchema.methods.generateAuthToken = function () {
   const access = 'auth';
   var token = jwt.sign({access, _id: this._id.toHexString()}, 'abc123').toString();
