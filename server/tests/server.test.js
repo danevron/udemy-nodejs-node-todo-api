@@ -3,23 +3,11 @@ const request = require('supertest');
 const { ObjectID } = require('mongodb');
 
 const app = require('./../server');
-const { Todo } = require('./../models/todo');
+const {Todo} = require('./../models/todo');
+const {todos, populateTodos, users, populateUsers} = require('./seed/seed');
 
-const testTodos = [{
-  _id: new ObjectID(),
-  text: 'first test todo'
-}, {
-  _id: new ObjectID(),
-  text: 'second test todo',
-  completed: true,
-  completedAt: 123
-}];
-
-beforeEach((done) => {
-  Todo.remove({}).then(() => {
-    return Todo.insertMany(testTodos);
-  }).then(() => done());
-});
+beforeEach(populateTodos);
+beforeEach(populateUsers);
 
 describe('POST /todos', () => {
 
@@ -78,10 +66,10 @@ describe('GET /todos', () => {
 describe('GET /todos/:id', () => {
   it('returns a todo', (done) => {
     request(app)
-      .get(`/todos/${testTodos[0]._id.toHexString()}`)
+      .get(`/todos/${todos[0]._id.toHexString()}`)
       .expect(200)
       .expect((res) => {
-        expect(res.body.todo.text).toBe(testTodos[0].text);
+        expect(res.body.todo.text).toBe(todos[0].text);
       })
       .end(done);
   });
@@ -104,7 +92,7 @@ describe('GET /todos/:id', () => {
 
 describe('DELETE /todos/:id', () => {
   it('deletes a todo', (done) => {
-    const id = testTodos[1]._id.toHexString();
+    const id = todos[1]._id.toHexString();
 
     request(app)
       .delete(`/todos/${id}`)
@@ -140,7 +128,7 @@ describe('DELETE /todos/:id', () => {
 });
 
 describe('PATCH /todos/:id', () => {
-  const id = testTodos[0]._id.toHexString();
+  const id = todos[0]._id.toHexString();
 
   it('updates a todo', (done) => {
     request(app)
@@ -165,7 +153,7 @@ describe('PATCH /todos/:id', () => {
   });
 
   it('clears completedAt when todo is not completed', (done) => {
-    const id = testTodos[1]._id.toHexString();
+    const id = todos[1]._id.toHexString();
 
     request(app)
       .patch(`/todos/${id}`)
@@ -185,4 +173,64 @@ describe('PATCH /todos/:id', () => {
         }).catch(e => done(e));
       });
   });
+});
+
+describe('GET /users/me', () => {
+  it('returns a user when authenticated', (done) => {
+    request(app)
+      .get('/users/me')
+      .set('x-auth', users[0].tokens[0].token)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body._id).toBe(users[0]._id.toHexString());
+      })
+      .end(done);
+  });
+
+  it('returns 401 when not authenticated', (done) => {
+    request(app)
+      .get('/users/me')
+      .set('x-auth', users[0].tokens[0].token + 'a')
+      .expect(401)
+      .expect((res) => {
+        expect(res.body).toEqual({});
+      })
+      .end(done);
+  });
+});
+
+describe('POST /users', () => {
+  it('creates a user', (done) => {
+    request(app)
+      .post('/users')
+      .send({
+        email: 'free@example.com',
+        password: '123456'
+      })
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.email).toBe('free@example.com');
+        expect(res.headers['x-auth']).toExist();
+      })
+      .end(done);
+  });
+
+  it('returns a validation error for invalid request', (done) => {
+    request(app)
+      .post('/users')
+      .send({
+        email: 'free@example.com',
+        password: '1234'
+      })
+      .expect(400)
+      .end(done);
+  });
+
+  it('returns a validation error if email is in use', (done) => {
+    request(app)
+      .post('/users')
+      .send({email: users[0].email, password: '123456'})
+      .expect(400)
+      .end(done);
+  })
 });
