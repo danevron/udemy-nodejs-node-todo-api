@@ -40,7 +40,7 @@ userSchema.statics.findByToken = function (token) {
   let decoded;
 
   try {
-    decoded = jwt.verify(token, 'abc123');
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch (e) {
     return Promise.reject();
   }
@@ -72,7 +72,7 @@ userSchema.statics.findByCredentials = function (email, password) {
 
 userSchema.methods.generateAuthToken = function () {
   const access = 'auth';
-  var token = jwt.sign({access, _id: this._id.toHexString()}, 'abc123').toString();
+  var token = jwt.sign({access, _id: this._id.toHexString()}, process.env.JWT_SECRET).toString();
 
   this.tokens.push({access, token});
 
